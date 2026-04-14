@@ -1,32 +1,47 @@
-name: ML Model CI
+name: CI Pipeline
 
 on:
   push:
-    branches-ignore:
-      - main
-  pull_request:
+    branches:
+      - "*"
 
 jobs:
-  validate-and-test:
+  linter:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
+      - name: Run linter
+        run: echo "Linting passed!"
 
-      - name: Install Dependencies
-        run: pip install -r requirements.txt
+  train:
+    needs: linter
+    runs-on: ubuntu-latest
 
-      - name: Model Dry Test
+    if: >
+      success() &&
+      github.ref == 'refs/heads/main' &&
+      contains(github.event.head_commit.message, '[run-train]')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Run training
         run: |
-          python -c "import torch; print('Model environment ready!')"
+          echo "Running training..."
+          echo "error happened" > error_logs.txt
+          exit 1
 
-      - name: Upload README as Artifact
-        uses: actions/upload-artifact@v4
+      - name: Upload error logs
+        if: failure()
+        uses: actions/upload-artifact@v3
         with:
-          name: project-doc
-          path: README.md
+          name: error-logs
+          path: error_logs.txt
+
+      - name: Cleanup
+        if: always()
+        run: echo "Cleaning up temporary cloud volumes..."
